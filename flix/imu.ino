@@ -8,7 +8,8 @@
 #include "lpf.h"
 #include "util.h"
 
-MPU9250 imu(SPI);
+// MPU9250 imu(SPI);
+ICM20948 imu(SPI);
 
 Vector accBias;
 Vector accScale(1, 1, 1);
@@ -44,7 +45,7 @@ void readIMU() {
 void rotateIMU(Vector& data) {
 	// Rotate from LFD to FLU
 	// NOTE: In case of using other IMU orientation, change this line:
-	data = Vector(data.y, data.x, -data.z);
+	data = Vector(data.y, -data.x, data.z);
 	// Axes orientation for various boards: https://github.com/okalachev/flixperiph#imu-axes-orientation
 }
 
