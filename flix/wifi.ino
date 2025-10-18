@@ -10,7 +10,7 @@
 #include <WiFiUdp.h>
 
 #define WIFI_AP_MODE 1
-#define WIFI_AP_SSID "flix"
+#define WIFI_AP_SSID "klyax"
 #define WIFI_AP_PASSWORD "flixwifi"
 #define WIFI_SSID ""
 #define WIFI_PASSWORD ""
