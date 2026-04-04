@@ -22,7 +22,7 @@ int rollChannel = -1, pitchChannel = -1, throttleChannel = -1, yawChannel = -1, 
 void setupRC() {
 	if (rcRxPin < 0) return;
 	print("Setup RC\n");
-	rc.begin(rcRxPin);
+	// rc.begin(rcRxPin); // idk
 }
 
 bool readRC() {
