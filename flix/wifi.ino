@@ -2,13 +2,11 @@
 // Repository: https://github.com/okalachev/flix
 
 #define USE_ESPNOW // uncomment to replace from WIFI to ESPNOW
-#define USE_ESPNOW // uncomment to replace from WIFI to ESPNOW
 
 #include "Preferences.h"
 
 extern Preferences storage; // use the main preferences storage
 
-// these variables are here for a compilation errors reason (references via extern)
 // these variables are here for a compilation errors reason (references via extern)
 const int W_DISABLED = 0, W_AP = 1, W_STA = 2;
 int wifiMode = W_AP;
@@ -37,6 +35,8 @@ std::queue<uint8_t> recv_queue{};
 
 // WARNING: onReceive called on interrupt (or other Task) context, so STL is kinda forbdden.. 
 void onReceive(const struct esp_now_recv_info *, const uint8_t *data, int len) {	
+	// mutex here
+
 	for (int i = 0; i < len; i += 1) {
 		recv_queue.push(data[i]);
 	}
@@ -79,6 +79,8 @@ void sendWiFi(const uint8_t *buf, int len) {
 // WARNING: this is not safe, but still works..
 // TODO: 	replace with ring buffer via queue from RTOS
 int receiveWiFi(uint8_t *buf, int len) {
+	// mutex here
+
 	int readed = 0;
 
 	while ((readed < len) && !recv_queue.empty()) {
@@ -173,5 +175,4 @@ void configWiFi(bool ap, const char *ssid, const char *password) {
 	print("✓ Reboot to apply new settings\n");
 }
 
-#endif
 #endif
