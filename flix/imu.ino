@@ -9,7 +9,8 @@
 #include "lpf.h"
 #include "util.h"
 
-MPU9250 imu(SPI);
+ICM20948 imu(SPI);
+// MPU9250 imu(SPI);
 Vector imuRotation(0, 0, -PI / 2); // imu orientation as Euler angles
 
 Vector gyro; // gyroscope output, rad/s
