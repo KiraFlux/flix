@@ -2,11 +2,13 @@
 // Repository: https://github.com/okalachev/flix
 
 #define USE_ESPNOW // uncomment to replace from WIFI to ESPNOW
+#define USE_ESPNOW // uncomment to replace from WIFI to ESPNOW
 
 #include "Preferences.h"
 
 extern Preferences storage; // use the main preferences storage
 
+// these variables are here for a compilation errors reason (references via extern)
 // these variables are here for a compilation errors reason (references via extern)
 const int W_DISABLED = 0, W_AP = 1, W_STA = 2;
 int wifiMode = W_AP;
@@ -79,7 +81,7 @@ void sendWiFi(const uint8_t *buf, int len) {
 int receiveWiFi(uint8_t *buf, int len) {
 	int readed = 0;
 
-	while ((readed < len) && recv_queue.empty()) {
+	while ((readed < len) && !recv_queue.empty()) {
 		buf[readed] = recv_queue.front();
 		recv_queue.pop();
 
@@ -171,4 +173,5 @@ void configWiFi(bool ap, const char *ssid, const char *password) {
 	print("✓ Reboot to apply new settings\n");
 }
 
+#endif
 #endif
