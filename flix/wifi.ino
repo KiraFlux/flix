@@ -3,49 +3,50 @@
 
 #define USE_ESPNOW // uncomment to replace from WIFI to ESPNOW
 
-#include "Preferences.h"
-
-extern Preferences storage; // use the main preferences storage
-
-// these variables are here for a compilation errors reason (references via extern)
 const int W_DISABLED = 0, W_AP = 1, W_STA = 2;
 int wifiMode = W_AP;
 int udpLocalPort = 14550;
 int udpRemotePort = 14550;
 
 #ifdef USE_ESPNOW
+// EspNow communication
 
-#include <queue> // todo replace with FreeRTOS ring buffer
+#include <freertos/queue.h>
 #include <esp_now.h>
 #include <WiFi.h>
 
-// EspNow communication 
-
-struct esp_now_recv_info; // forward declaration for a reason
+const int maxChunk = ESP_NOW_MAX_DATA_LEN;
+const int recvQueueSize = 1024;
+const int wifiChannel = 1;
 
 esp_now_peer_info_t peer{
-	// broadcast address (can receive from anyone)
 	.peer_addr={0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	.channel=0,
 	.encrypt=false,
 };
 
-// First dirty implemenration. (WILL be replaced with FreeRTOS queue)
-std::queue<uint8_t> recv_queue{};
+QueueHandle_t recvQueue = nullptr;
+volatile uint32_t lostPackets = 0;
+bool espnowInitialized = false;
 
-// WARNING: onReceive called on interrupt (or other Task) context, so STL is kinda forbdden.. 
-void onReceive(const struct esp_now_recv_info *, const uint8_t *data, int len) {	
-	// mutex here
+void IRAM_ATTR onReceive(const esp_now_recv_info_t *, const uint8_t *data, int len) {
+	if (!espnowInitialized) return;
 
 	for (int i = 0; i < len; i += 1) {
-		recv_queue.push(data[i]);
+        if (xQueueSendFromISR(recvQueue, &data[i], nullptr) != pdTRUE) {
+			lostPackets += 1;
+		}
 	}
 }
 
-// bulk espnow init
+// bulk init
 esp_err_t initEspNow() {
 	if (!WiFi.mode(WIFI_STA)) return ESP_FAIL;
+	WiFi.setChannel(wifiChannel);
 
+	recvQueue = xQueueCreate(recvQueueSize, sizeof(uint8_t));
+    if (recvQueue == nullptr) return ESP_ERR_NO_MEM;
+    
 	esp_err_t e;
 	
 	e = esp_now_init();
@@ -53,66 +54,71 @@ esp_err_t initEspNow() {
 
 	e = esp_now_register_recv_cb(onReceive);
 	if (e != ESP_OK) return e;
-        
+    
     return esp_now_add_peer(&peer);
 }
 
-// setup ESPNOW, peer, WIFI mode STA
 void setupWiFi() {
 	esp_err_t init_result = initEspNow();
-	if (init_result != ESP_OK) {
-		print("EspNow: init failed: %s\n", esp_err_to_name(init_result));
-	} else {
+	espnowInitialized = (init_result == ESP_OK);
+	
+	if (espnowInitialized) {
 		print("EspNow: init OK\n");
+	} else {
+		print("EspNow: init failed: %s\n", esp_err_to_name(init_result));
 	}
 }
 
-// send to espnow peer
 void sendWiFi(const uint8_t *buf, int len) {
-	esp_err_t send_result = esp_now_send(peer.peer_addr, buf, len);
-	if (send_result != ESP_OK) {
-		print("EspNow: send failed: %s\n", esp_err_to_name(send_result));
-	}
+    if (!espnowInitialized) return;
+
+	int remaining = len;
+
+	while (remaining > 0) {
+        int chunkLen = (remaining < maxChunk) ? remaining : maxChunk;
+        (void) esp_now_send(peer.peer_addr, buf, chunkLen);
+        
+		buf += chunkLen;
+        remaining -= chunkLen;
+    }
 }
 
-// read available from queue
-// WARNING: this is not safe, but still works..
-// TODO: 	replace with ring buffer via queue from RTOS
 int receiveWiFi(uint8_t *buf, int len) {
-	// mutex here
+	if (!espnowInitialized) return 0;
 
-	int readed = 0;
+	int i;
+	for (i = 0; i < len; i += 1) {
+        if (xQueueReceive(recvQueue, &buf[i], 0) != pdTRUE) break;
+    }
 
-	while ((readed < len) && !recv_queue.empty()) {
-		buf[readed] = recv_queue.front();
-		recv_queue.pop();
-
-		readed += 1;
-	}
-
-	return readed;
+    return i;
 }
 
 void printWiFiInfo() {
-	// todo implement
+	if (!espnowInitialized) return;
 
-	// ESPNOW info?
-	// maybe show some stats (need to collect stats)
+	print("ESPNOW mode (no Wi-Fi AP/STA)\n");
+    print("MAC: %s\n", WiFi.macAddress().c_str());
+    print("Channel: %d\n", WiFi.channel());
+    UBaseType_t itemsWaiting = uxQueueMessagesWaiting(recvQueue);
+    print("Queue pending bytes: %d\n", itemsWaiting);
+    print("Lost packets: %lu\n", lostPackets);
 }
 
+// ESPNOW does not use SSID/password. This function is kept for compatibility.
 void configWiFi(bool ap, const char *ssid, const char *password) {
-	// todo implement
-	
-	// maybe interpret ssid as human-readable peer MAC address string, parse it and set into preferences? 
+    print("ESPNOW: configWiFi called but not applicable\n");
 }
 
 #else
-
 // Wi-Fi communication
 
 #include <WiFi.h>
 #include <WiFiAP.h>
 #include <WiFiUdp.h>
+#include "Preferences.h"
+
+extern Preferences storage; // use the main preferences storage
 
 IPAddress udpRemoteIP = "255.255.255.255";
 
