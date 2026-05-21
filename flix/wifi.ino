@@ -79,8 +79,8 @@ int receiveWiFi(uint8_t *buf, int len) {
 void printWiFiInfo() {
 	if (espnow) {
 		print("Mode: ESP-NOW\n");
-		print("ESP-NOW version: %d\n", ESP_NOW.getVersion());
-		print("Max packet size: %d\n", ESP_NOW.getMaxDataLen());
+		// print("ESP-NOW version: %d\n", ESP_NOW.getVersion());
+		// print("Max packet size: %d\n", ESP_NOW.getMaxDataLen());
 		print("MAC: %s\n", WiFi.softAPmacAddress().c_str());
 		print("Peer MAC: %s\n", MacAddress(espnow.addr()).toString().c_str());
 		print("Encrypted: %d\n", espnow.isEncrypted());
