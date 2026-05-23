@@ -95,9 +95,15 @@ void receiveMavlink() {
 
 void handleMavlink(const void *_msg) {
 	const mavlink_message_t& msg = *(mavlink_message_t *)_msg;
+	
+	const auto now = millis();
+	static uint32_t last_log{now};
+	print("[%d] msg: %d (%d)\n", now, msg.msgid, (now - last_log));
+	last_log = now;
 
 	if (msg.msgid == MAVLINK_MSG_ID_MANUAL_CONTROL) {
 		mavlink_manual_control_t m;
+		constexpr auto s = sizeof(mavlink_manual_control_t);
 		mavlink_msg_manual_control_decode(&msg, &m);
 		if (m.target && m.target != mavlinkSysId) return; // 0 is broadcast
 
